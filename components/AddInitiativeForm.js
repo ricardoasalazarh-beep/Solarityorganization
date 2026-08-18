@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { PRIORITIES } from '../lib/areas';
 
-export default function AddInitiativeForm({ area, onCreate, onClose }) {
+export default function AddInitiativeForm({ area, people, onCreate, onClose }) {
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [priority, setPriority] = useState('media');
   const [dueDate, setDueDate] = useState('');
+  const [responsibleId, setResponsibleId] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e) {
@@ -15,11 +16,19 @@ export default function AddInitiativeForm({ area, onCreate, onClose }) {
     if (!title.trim()) return;
     setSaving(true);
     try {
-      await onCreate({ area: area.id, title, notes, priority, dueDate: dueDate || null });
+      await onCreate({
+        area: area.id,
+        title,
+        notes,
+        priority,
+        dueDate: dueDate || null,
+        responsibleId: responsibleId || null,
+      });
       setTitle('');
       setNotes('');
       setPriority('media');
       setDueDate('');
+      setResponsibleId('');
       onClose();
     } finally {
       setSaving(false);
@@ -64,7 +73,22 @@ export default function AddInitiativeForm({ area, onCreate, onClose }) {
           onChange={(e) => setDueDate(e.target.value)}
           className="rounded-lg border border-slate-300 p-2 text-sm"
         />
+        <select
+          value={responsibleId}
+          onChange={(e) => setResponsibleId(e.target.value)}
+          className="rounded-lg border border-slate-300 p-2 text-sm"
+        >
+          <option value="">Sin responsable</option>
+          {(people || []).map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
+      {responsibleId && !dueDate ? (
+        <p className="text-[11px] text-amber-600">
+          Agrega una fecha límite para poder avisarle por correo apenas la crees.
+        </p>
+      ) : null}
       <div className="flex gap-2 pt-1">
         <button
           type="submit"

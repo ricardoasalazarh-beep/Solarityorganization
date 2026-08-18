@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PRIORITIES, STATUSES } from '../lib/areas';
+import CommentsSection from './CommentsSection';
 
 const PRIORITY_STYLES = {
   alta: 'bg-red-100 text-red-700 border-red-200',
@@ -9,7 +10,12 @@ const PRIORITY_STYLES = {
   baja: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-export default function InitiativeCard({ item, areas, onUpdate, onDelete }) {
+const CHECKIN_STYLES = {
+  si: 'bg-green-100 text-green-700',
+  no: 'bg-red-100 text-red-700',
+};
+
+export default function InitiativeCard({ item, areas, people, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [notes, setNotes] = useState(item.notes || '');
@@ -17,6 +23,7 @@ export default function InitiativeCard({ item, areas, onUpdate, onDelete }) {
   const [priority, setPriority] = useState(item.priority);
   const [dueDate, setDueDate] = useState(item.due_date ? item.due_date.slice(0, 10) : '');
   const [status, setStatus] = useState(item.status);
+  const [responsibleId, setResponsibleId] = useState(item.responsible_id || '');
   const [saving, setSaving] = useState(false);
 
   const isDone = item.status === 'hecho';
@@ -24,7 +31,15 @@ export default function InitiativeCard({ item, areas, onUpdate, onDelete }) {
   async function save() {
     setSaving(true);
     try {
-      await onUpdate(item.id, { title, notes, area, priority, dueDate: dueDate || null, status });
+      await onUpdate(item.id, {
+        title,
+        notes,
+        area,
+        priority,
+        dueDate: dueDate || null,
+        status,
+        responsibleId: responsibleId || '',
+      });
       setEditing(false);
     } finally {
       setSaving(false);
@@ -68,7 +83,22 @@ export default function InitiativeCard({ item, areas, onUpdate, onDelete }) {
             ))}
           </select>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="rounded-lg border border-slate-300 p-2 text-sm" />
+          <select
+            value={responsibleId}
+            onChange={(e) => setResponsibleId(e.target.value)}
+            className="rounded-lg border border-slate-300 p-2 text-sm"
+          >
+            <option value="">Sin responsable</option>
+            {(people || []).map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
         </div>
+        {responsibleId && !dueDate ? (
+          <p className="text-[11px] text-amber-600">
+            Agrega una fecha límite para poder avisarle por correo.
+          </p>
+        ) : null}
         <div className="flex gap-2 pt-1">
           <button onClick={save} disabled={saving} className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40">
             {saving ? 'Guardando…' : 'Guardar'}
@@ -95,22 +125,35 @@ export default function InitiativeCard({ item, areas, onUpdate, onDelete }) {
         onChange={toggleDone}
         className="mt-1 h-4 w-4 shrink-0 accent-slate-900"
       />
-      <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setEditing(true)}>
-        <p className={`text-sm font-medium leading-snug ${isDone ? 'line-through' : ''}`}>{item.title}</p>
-        {item.notes ? <p className="mt-1 text-xs text-slate-500 whitespace-pre-wrap">{item.notes}</p> : null}
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.media}`}>
-            {PRIORITIES.find((p) => p.key === item.priority)?.label || item.priority}
-          </span>
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-            {STATUSES.find((s) => s.key === item.status)?.label || item.status}
-          </span>
-          {item.due_date ? (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-              📅 {new Date(item.due_date).toLocaleDateString('es-CL')}
+      <div className="min-w-0 flex-1">
+        <div className="cursor-pointer" onClick={() => setEditing(true)}>
+          <p className={`text-sm font-medium leading-snug ${isDone ? 'line-through' : ''}`}>{item.title}</p>
+          {item.notes ? <p className="mt-1 text-xs text-slate-500 whitespace-pre-wrap">{item.notes}</p> : null}
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${PRIORITY_STYLES[item.priority] || PRIORITY_STYLES.media}`}>
+              {PRIORITIES.find((p) => p.key === item.priority)?.label || item.priority}
             </span>
-          ) : null}
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+              {STATUSES.find((s) => s.key === item.status)?.label || item.status}
+            </span>
+            {item.due_date ? (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                📅 {new Date(item.due_date).toLocaleDateString('es-CL')}
+              </span>
+            ) : null}
+            {item.responsible_name ? (
+              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] text-indigo-700">
+                👤 {item.responsible_name}
+              </span>
+            ) : null}
+            {item.checkin_response ? (
+              <span className={`rounded-full px-2 py-0.5 text-[11px] ${CHECKIN_STYLES[item.checkin_response]}`}>
+                Check-in: {item.checkin_response === 'si' ? 'Sí, se hizo' : 'Dijo que no'}
+              </span>
+            ) : null}
+          </div>
         </div>
+        <CommentsSection initiativeId={item.id} initialCount={item.comment_count || 0} />
       </div>
     </div>
   );

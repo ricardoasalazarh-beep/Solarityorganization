@@ -6,6 +6,7 @@ import { fetcher } from '../lib/fetcher';
 import AddInitiativeForm from '../components/AddInitiativeForm';
 import AddAreaForm from '../components/AddAreaForm';
 import InitiativeCard from '../components/InitiativeCard';
+import PeopleManager from '../components/PeopleManager';
 
 export default function DashboardPage() {
   const {
@@ -27,7 +28,16 @@ export default function DashboardPage() {
     revalidateOnFocus: true,
   });
 
+  const {
+    data: peopleData,
+    mutate: mutatePeople,
+  } = useSWR('/api/people', fetcher, {
+    refreshInterval: 30000,
+    revalidateOnFocus: true,
+  });
+
   const areas = areasData?.areas || [];
+  const people = peopleData?.people || [];
   const [openForm, setOpenForm] = useState(null); // id de área con formulario de iniciativa abierto
   const [addingArea, setAddingArea] = useState(false);
   const [hideDone, setHideDone] = useState(true);
@@ -101,6 +111,24 @@ export default function DashboardPage() {
     await Promise.all([mutateAreas(), mutateInitiatives()]);
   }
 
+  async function createPerson(payload) {
+    const res = await fetch('/api/people', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'No se pudo agregar la persona');
+    }
+    await mutatePeople();
+  }
+
+  async function deletePerson(id) {
+    await fetch(`/api/people/${id}`, { method: 'DELETE' });
+    await Promise.all([mutatePeople(), mutateInitiatives()]);
+  }
+
   const totalPending = (initiativesData?.initiatives || []).filter((i) => i.status !== 'hecho').length;
 
   return (
@@ -117,6 +145,8 @@ export default function DashboardPage() {
           Ocultar terminadas
         </label>
       </header>
+
+      <PeopleManager people={people} onCreate={createPerson} onDelete={deletePerson} />
 
       {initiativesError || areasError ? (
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -149,13 +179,20 @@ export default function DashboardPage() {
 
               <div className="space-y-2">
                 {items.map((item) => (
-                  <InitiativeCard key={item.id} item={item} areas={areas} onUpdate={updateInitiative} onDelete={deleteInitiative} />
+                  <InitiativeCard
+                    key={item.id}
+                    item={item}
+                    areas={areas}
+                    people={people}
+                    onUpdate={updateInitiative}
+                    onDelete={deleteInitiative}
+                  />
                 ))}
                 {items.length === 0 ? <p className="text-xs text-slate-400 py-2">Sin pendientes</p> : null}
               </div>
 
               {openForm === area.id ? (
-                <AddInitiativeForm area={area} onCreate={createInitiative} onClose={() => setOpenForm(null)} />
+                <AddInitiativeForm area={area} people={people} onCreate={createInitiative} onClose={() => setOpenForm(null)} />
               ) : (
                 <button
                   onClick={() => setOpenForm(area.id)}
